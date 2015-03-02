@@ -4,3 +4,13 @@
     background: #000;
     display: inline-block;
 }
+
+.charDisplayTop {
+    width: 128px;
+    height: 128px;
+    background: #000;
+    display: inline-block;
+    border:4px solid #000;
+
+    margin: 4px;
+}

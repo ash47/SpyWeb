@@ -119,7 +119,10 @@ Board.prototype.getCharacter = function(x, y) {
     // Check if it is a standard square
     if(x >= 0 && x <= 2) {
         if(y >= 0 && y <= 2) {
-            return this.characters[3*y + x];
+            var slotNumber = 3*y + x;
+            if(this.activeSlot == slotNumber) return null;
+
+            return this.characters[slotNumber];
         }
     }
 
@@ -130,6 +133,12 @@ Board.prototype.getCharacter = function(x, y) {
 
     // Currently null
     return null;
+}
+
+// Returns the picked character
+Board.prototype.getPicked = function() {
+    if(this.activeSlot == null) return null;
+    return this.characters[this.activeSlot];
 }
 
 // Puts a character into the given slot
@@ -145,6 +154,16 @@ Board.prototype.setCharacter = function(x, y, character) {
     return false;
 }
 
+// Puts a character into the direct slot
+Board.prototype.setCharacterSlot = function(slot, character) {
+    if(slot >= 0 && slot <= 8) {
+        this.characters[slot] = character;
+        return true;
+    }
+
+    return false;
+}
+
 // Displays the board into the given element
 Board.prototype.display = function(div) {
     // Empty the div
@@ -154,10 +173,19 @@ Board.prototype.display = function(div) {
     var ourCon = $('<div>').attr('class', 'board');
     div.append(ourCon);
 
+    var picked = this.getPicked();
+    if(picked != null) {
+        var charDisplay = $('<div>').attr('class', 'charDisplayTop').css('background-image', 'url("' + picked.getImage(false) + '")').css('background-size', '128px 128px');
+        ourCon.append(charDisplay);
+
+        var newLine = $('<br>');
+        ourCon.append(newLine);
+    }
+
     // Create a container for each of our characters
     for(var y=0; y<=2; ++y) {
         for(var x=0; x<=2; ++x) {
-            var charDisplay = $('<div>').attr('class', 'charDisplay')
+            var charDisplay = $('<div>').attr('class', 'charDisplay');
 
             var character = this.getCharacter(x, y);
             if(character) {
@@ -174,12 +202,18 @@ Board.prototype.display = function(div) {
     }
 }
 
+// Picks the slot where the spy is hidding
+Board.prototype.pickSlot = function(slot) {
+    this.activeSlot = slot;
+}
+
 // Calculates stats used to rate a given board
 Board.prototype.calcStats = function() {
     // Used to rank boards
     var total = 0;      // Total connections to characters
     var unique = 0;     // Unique connections to characters
     var vehicle = 0;    // Total connections to vehicles (these are BAD)
+    var miss = 0;       // Total number of misdirections
 
     for(var y=0; y<=2; y++) {
         for(var x=0; x<=2; ++x) {
@@ -197,6 +231,8 @@ Board.prototype.calcStats = function() {
                         total++;
                         unique++;
                     }
+                } else {
+                    miss++;
                 }
             }
 
@@ -212,6 +248,8 @@ Board.prototype.calcStats = function() {
                         total++;
                         unique++;
                     }
+                } else {
+                    miss++;
                 }
             }
 
@@ -230,6 +268,8 @@ Board.prototype.calcStats = function() {
                             unique++;
                         }
                     }
+                } else {
+                    miss++;
                 }
             }
 
@@ -248,6 +288,8 @@ Board.prototype.calcStats = function() {
                             unique++;
                         }
                     }
+                } else {
+                    miss++;
                 }
             }
         }
@@ -256,7 +298,8 @@ Board.prototype.calcStats = function() {
     return {
         total: total,
         unique: unique,
-        vehicle: vehicle
+        vehicle: vehicle,
+        miss: miss
     }
 }
 
@@ -295,46 +338,72 @@ $(document).ready(function(){
     // We can cleanup the characterData now
     delete characterData;
 
-    /*function applyLoop(pool, board, slot, charNumber) {
-        if(board == null) {
-            board = new Board();
-        }
+    var stats = [];
+    var usedChars = [];
 
-        console.log(slot + ' ' + charNumber);
-
-        if(charNumber < pool.length) {
-            charNumber++;
-        } else {
-            slot++;
-            charNumber = 0;
-        }
-
-        if(slot > 8) {
-            return;
-        }
-
-        applyLoop(pool, board, slot, charNumber);
-
-        //for(var i=0; i<pool.length; ++i) {
-        //    console.log(i);
-        //}
-    }
-
+    var pool = goodCharacters;
     var board = new Board();
-    applyLoop(goodCharacters, board, 0, 0);*/
+    function permute(input) {
+        var i, j, ch;
+        for (i=0; i<input.length; ++i) {
+            ch = input.splice(i, 1)[0];
+            usedChars.push(ch);
+            if (input.length == 0) {
+                var res = usedChars.slice();
+                for(j=0; j<res.length; ++j) {
+                    board.setCharacterSlot(j, pool[res[j]]);
+                }
 
-    // Setup a test board
-    /*var board = new Board();
+                for(j=0; j<9; ++j) {
+                    board.pickSlot(j);
 
-    for(var x=0; x<=2; ++x) {
-        for(var y=0; y<=2; ++y) {
-            board.setCharacter(x, y, goodCharacters[x+3*y]);
+                    var ourStats = board.calcStats();
+                    ourStats.state = res;
+                    ourStats.pos = j;
+                    stats.push(ourStats);
+                }
+            }
+            permute(input);
+            input.splice(i, 0, ch);
+            usedChars.pop();
         }
+    };
+
+    console.log('Beginning permutations!');
+
+    permute([
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+    ]);
+
+    console.log('Beginning sorting...');
+
+    stats.sort(function(a, b) {
+        if(a.vehicle != b.vehicle) return a.vehicle - b.vehicle;
+        if(a.unique != b.unique) return a.unique - b.unique;
+        if(a.miss != b.miss) return b.miss - a.miss;
+
+
+        return a.total - b.total;
+    });
+
+    console.log('Results:');
+
+    var pickNum = 0;
+
+    var winnerState = stats[pickNum].state;
+    var winnerPos = stats[pickNum].pos;
+    for(var i=0; i<9; ++i) {
+        board.setCharacterSlot(i, pool[winnerState[i]]);
     }
+    board.pickSlot(winnerPos);
 
-    board.setCharacter(1, 1, null);
-
-    board.display($('#content'));*/
-
-    //console.log(board.calcStats());
+    board.display($('#content'));
 });
