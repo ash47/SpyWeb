@@ -394,16 +394,25 @@ $(document).ready(function(){
         return a.total - b.total;
     });
 
-    console.log('Results:');
+    // Displays the given result
+    function displayResult(pickNum) {
+        var winnerState = stats[pickNum].state;
+        var winnerPos = stats[pickNum].pos;
+        for(var i=0; i<9; ++i) {
+            board.setCharacterSlot(i, pool[winnerState[i]]);
+        }
+        board.pickSlot(winnerPos);
 
-    var pickNum = 0;
-
-    var winnerState = stats[pickNum].state;
-    var winnerPos = stats[pickNum].pos;
-    for(var i=0; i<9; ++i) {
-        board.setCharacterSlot(i, pool[winnerState[i]]);
+        board.display($('#content'));
     }
-    board.pickSlot(winnerPos);
 
-    board.display($('#content'));
+    displayResult(0);
+
+    var controls = $('#controls');
+
+    var slider = $('<div>')
+    controls.append(slider);
+    slider.slider({min:0, max:stats.length-1, step:1, slide: function( event, ui ) {
+        displayResult(ui.value);
+    }});
 });
