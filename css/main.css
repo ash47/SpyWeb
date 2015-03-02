@@ -1,6 +1,6 @@
 .charDisplay {
     width: 128px;
     height: 128px;
-    background: #FF0;
+    background: #000;
     display: inline-block;
 }
