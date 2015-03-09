@@ -48,9 +48,9 @@ function Character(name, data) {
 // Returns the image for this character
 Character.prototype.getImage = function(suspect) {
     if(suspect) {
-        return 'images/characters/' + this.name + '_suspect.png';
+        return 'images/characters/' + this.name + '_suspect.jpg';
     } else {
-        return 'images/characters/' + this.name + '.png';
+        return 'images/characters/' + this.name + '.jpg';
     }
 }
 
@@ -77,6 +77,13 @@ Character.prototype.isVehicle = function() {
 // Sets the type of vehicle this is
 Character.prototype.setVehicle = function(sort) {
     this.vehicle = sort;
+}
+
+// Iterates over a player's move
+Character.prototype.loopOverMoves = function(func) {
+    for(var direction in this.moves) {
+        func(this, direction, this.moves[direction]);
+    }
 }
 
 /* Create vehicles */
@@ -115,7 +122,15 @@ function Board() {
 }
 
 // Returns the character in the given space
-Board.prototype.getCharacter = function(x, y) {
+Board.prototype.getCharacter = function(x, y, direction) {
+    // Handle the direction param
+    if(direction != null) {
+        if(direction == DIR_LEFT) x -= 1;
+        if(direction == DIR_RIGHT) x += 1;
+        if(direction == DIR_UP) y -= 1;
+        if(direction == DIR_DOWN) y += 1;
+    }
+
     // Check if it is a standard square
     if(x >= 0 && x <= 2) {
         if(y >= 0 && y <= 2) {
@@ -182,6 +197,10 @@ Board.prototype.display = function(div) {
         ourCon.append(newLine);
     }
 
+    // Add a container for the board
+    var boardCon = $('<div>').attr('class', 'boardCon');
+    ourCon.append(boardCon);
+
     // Create a container for each of our characters
     for(var y=0; y<=2; ++y) {
         for(var x=0; x<=2; ++x) {
@@ -192,12 +211,12 @@ Board.prototype.display = function(div) {
                 charDisplay.css('background-image', 'url("' + character.getImage(false) + '")').css('background-size', '128px 128px');
             }
 
-            ourCon.append(charDisplay);
+            boardCon.append(charDisplay);
         }
 
         if(y < 2) {
             var newLine = $('<br>');
-            ourCon.append(newLine);
+            boardCon.append(newLine);
         }
     }
 }
@@ -214,82 +233,147 @@ Board.prototype.calcStats = function() {
     var unique = 0;     // Unique connections to characters
     var vehicle = 0;    // Total connections to vehicles (these are BAD)
     var miss = 0;       // Total number of misdirections
+    var totalGraphs = 0;// Total number of graphs
+
+    // List of chars that are already in our graph
+    var handled = {};
+    var graph = {};
+    var graphNum = 1;
+
+    // Add stats for the picked character
+    var character = this.getPicked();
+    if(character != null) {
+        character.loopOverMoves(function(chr, dir, move) {
+            this.miss++;
+        });
+    }
+
+    // Grab a reference to this board
+    var thisBoard = this;
 
     for(var y=0; y<=2; y++) {
         for(var x=0; x<=2; ++x) {
             var character = this.getCharacter(x, y);
 
-            if(character != null && character.canMove(DIR_RIGHT)) {
-                var moveCharacter = this.getCharacter(x+1, y);
+            if(character != null) {
+                // Build a graph
+                if(!handled[character.getName()]) {
+                    var myGraph = graphNum++;
+                    graph[character.getName()] = myGraph;
+                    handled[character.getName()] = true;
+                    totalGraphs++;
 
-                if(moveCharacter != null) {
-                    if(moveCharacter.isVehicle()) {
-                        vehicle++;
-                        total++;
-                        unique++;
-                    } else {
-                        total++;
-                        unique++;
+                    function buildGraph(character, ox, oy) {
+                        character.loopOverMoves(function(chr, dir, move) {
+                            var newX = ox;
+                            var newY = oy;
+
+                            // Adjust positioning
+                            if(dir == DIR_LEFT) newX -= 1;
+                            if(dir == DIR_RIGHT) newX += 1;
+                            if(dir == DIR_UP) newY -= 1;
+                            if(dir == DIR_DOWN) newY += 1;
+
+                            var moveCharacter = thisBoard.getCharacter(newX, newY);
+                            if(moveCharacter != null) {
+                                if(handled[moveCharacter.getName()]) {
+                                    // This is a graph that already exists, check for merge
+                                    var theirGraph = graph[moveCharacter.getName()];
+                                    if(theirGraph != myGraph) {
+                                        for(var key in graph) {
+                                            if(graph[key] == myGraph) {
+                                                graph[key] = theirGraph;
+                                            }
+                                        }
+
+                                        myGraph = theirGraph;
+                                        totalGraphs--;
+                                    }
+                                } else {
+                                    // This graph is new
+                                    graph[moveCharacter.getName()] = myGraph;
+                                    handled[moveCharacter.getName()] = true;
+                                    buildGraph(moveCharacter, newX, newY);
+                                }
+                            }
+                        });
                     }
-                } else {
-                    miss++;
+                    buildGraph(character, x, y);
                 }
-            }
 
-            if(character != null && character.canMove(DIR_DOWN)) {
-                var moveCharacter = this.getCharacter(x, y+1);
+                // Handle move stats
+                if(character.canMove(DIR_RIGHT)) {
+                    var moveCharacter = this.getCharacter(x+1, y);
 
-                if(moveCharacter != null) {
-                    if(moveCharacter.isVehicle()) {
-                        vehicle++;
-                        total++;
-                        unique++;
-                    } else {
-                        total++;
-                        unique++;
-                    }
-                } else {
-                    miss++;
-                }
-            }
-
-            if(character != null && character.canMove(DIR_LEFT)) {
-                var moveCharacter = this.getCharacter(x-1, y);
-
-                if(moveCharacter != null) {
-                    if(moveCharacter.isVehicle()) {
-                        vehicle++;
-                        total++;
-                        unique++;
-                    } else {
-                        total++;
-
-                        if(!moveCharacter.canMove(DIR_RIGHT)) {
+                    if(moveCharacter != null) {
+                        if(moveCharacter.isVehicle()) {
+                            vehicle++;
+                            total++;
+                            unique++;
+                        } else {
+                            total++;
                             unique++;
                         }
-                    }
-                } else {
-                    miss++;
-                }
-            }
-
-            if(character != null && character.canMove(DIR_UP)) {
-                var moveCharacter = this.getCharacter(x, y-1);
-
-                if(moveCharacter != null) {
-                    if(moveCharacter.isVehicle()) {
-                        vehicle++;
-                        total++;
-                        unique++;
                     } else {
-                        total++;
+                        miss++;
+                    }
+                }
 
-                        if(!moveCharacter.canMove(DIR_DOWN)) {
+                if(character.canMove(DIR_DOWN)) {
+                    var moveCharacter = this.getCharacter(x, y+1);
+
+                    if(moveCharacter != null) {
+                        if(moveCharacter.isVehicle()) {
+                            vehicle++;
+                            total++;
+                            unique++;
+                        } else {
+                            total++;
                             unique++;
                         }
+                    } else {
+                        miss++;
                     }
-                } else {
-                    miss++;
+                }
+
+                if(character.canMove(DIR_LEFT)) {
+                    var moveCharacter = this.getCharacter(x-1, y);
+
+                    if(moveCharacter != null) {
+                        if(moveCharacter.isVehicle()) {
+                            vehicle++;
+                            total++;
+                            unique++;
+                        } else {
+                            total++;
+
+                            if(!moveCharacter.canMove(DIR_RIGHT)) {
+                                unique++;
+                            }
+                        }
+                    } else {
+                        miss++;
+                    }
+                }
+
+                if(character.canMove(DIR_UP)) {
+                    var moveCharacter = this.getCharacter(x, y-1);
+
+                    if(moveCharacter != null) {
+                        if(moveCharacter.isVehicle()) {
+                            vehicle++;
+                            total++;
+                            unique++;
+                        } else {
+                            total++;
+
+                            if(!moveCharacter.canMove(DIR_DOWN)) {
+                                unique++;
+                            }
+                        }
+                    } else {
+                        miss++;
+                    }
                 }
             }
         }
@@ -299,7 +383,8 @@ Board.prototype.calcStats = function() {
         total: total,
         unique: unique,
         vehicle: vehicle,
-        miss: miss
+        miss: miss,
+        totalGraphs: totalGraphs
     }
 }
 
@@ -341,9 +426,25 @@ $(document).ready(function(){
     var stats = [];
     var usedChars = [];
 
+    // Used for progress updating
+    var totalPermutations = 1;
+    var totalDone = 0;
+    var nextCheck = 0;
+    var checkIncease = 0.05;
+    for(var i=2; i<=9; ++i) {
+        totalPermutations *= i;
+    }
+
     var pool = goodCharacters;
+    //var pool = badCharacters;
     var board = new Board();
     function permute(input) {
+        // Check if we should print progress
+        if(totalDone/totalPermutations >= nextCheck) {
+            nextCheck += checkIncease;
+            console.log('Done ' + totalDone + '/' + totalPermutations);
+        }
+
         var i, j, ch;
         for (i=0; i<input.length; ++i) {
             ch = input.splice(i, 1)[0];
@@ -362,6 +463,9 @@ $(document).ready(function(){
                     ourStats.pos = j;
                     stats.push(ourStats);
                 }
+
+                // Increase stats
+                totalDone++;
             }
             permute(input);
             input.splice(i, 0, ch);
@@ -386,24 +490,34 @@ $(document).ready(function(){
     console.log('Beginning sorting...');
 
     stats.sort(function(a, b) {
+        if(a.totalGraphs != b.totalGraphs) return b.totalGraphs - a.totalGraphs;
         if(a.vehicle != b.vehicle) return a.vehicle - b.vehicle;
         if(a.unique != b.unique) return a.unique - b.unique;
-        if(a.miss != b.miss) return b.miss - a.miss;
-
+        if(a.miss != b.miss) return a.miss - b.miss;
 
         return a.total - b.total;
     });
 
     // Displays the given result
     function displayResult(pickNum) {
-        var winnerState = stats[pickNum].state;
-        var winnerPos = stats[pickNum].pos;
+        var winnerStats = stats[pickNum];
+        var winnerState = winnerStats.state;
+        var winnerPos = winnerStats.pos;
         for(var i=0; i<9; ++i) {
             board.setCharacterSlot(i, pool[winnerState[i]]);
         }
         board.pickSlot(winnerPos);
 
         board.display($('#content'));
+
+        var statsPan = $('#stats');
+        statsPan.empty();
+
+        statsPan.append('<b>Graphs:</b> ' + winnerStats.totalGraphs + '<br>');
+        statsPan.append('<b>Total:</b> ' + winnerStats.total + '<br>');
+        statsPan.append('<b>Unique:</b> ' + winnerStats.unique + '<br>');
+        statsPan.append('<b>Miss:</b> ' + winnerStats.miss + '<br>');
+        statsPan.append('<b>Vehicle:</b> ' + winnerStats.vehicle);
     }
 
     displayResult(0);
