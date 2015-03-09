@@ -579,9 +579,9 @@ function buildResultUI(pool) {
 
         statsPan.append('<b>Graphs:</b> ' + winnerStats.totalGraphs + '<br>');
         statsPan.append('<b>vehicle Graphs:</b> ' + winnerStats.vehicleGraphTotal + '<br>');
-        statsPan.append('<b>Total:</b> ' + winnerStats.total + '<br>');
-        statsPan.append('<b>Unique:</b> ' + winnerStats.unique + '<br>');
         statsPan.append('<b>Miss:</b> ' + winnerStats.miss + '<br>');
+        statsPan.append('<b>Unique:</b> ' + winnerStats.unique + '<br>');
+        statsPan.append('<b>Total:</b> ' + winnerStats.total + '<br>');
         statsPan.append('<b>Vehicle:</b> ' + winnerStats.vehicle);
     }
 
