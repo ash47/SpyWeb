@@ -435,8 +435,19 @@ $(document).ready(function(){
         totalPermutations *= i;
     }
 
-    var pool = goodCharacters;
-    //var pool = badCharacters;
+    var pool;
+
+    while(true) {
+        var userInput = prompt('Do you want to generate the good or bad character combos?', 'good');
+        if(userInput == 'good') {
+            pool = goodCharacters;
+            break;
+        } else if(userInput == 'bad') {
+            pool = badCharacters;
+            break;
+        }
+    }
+
     var board = new Board();
     function permute(input) {
         // Check if we should print progress
