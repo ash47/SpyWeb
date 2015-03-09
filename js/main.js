@@ -379,12 +379,32 @@ Board.prototype.calcStats = function() {
         }
     }
 
+    // Calculate how many unique vehicle graphs there are
+    var vehicleGraphTotal = 0;
+    var vehicleGraphs = {};
+
+    function checkVehicleGraph(veh) {
+        if(handled[veh]) {
+            var vehGraphNum = graph[veh];
+            if(!vehicleGraphs[vehGraphNum]) {
+                vehicleGraphs[vehGraphNum] = true;
+                vehicleGraphTotal++;
+            }
+        }
+    }
+
+    checkVehicleGraph(VEHICLE_PLANE.getName());
+    checkVehicleGraph(VEHICLE_CAR.getName());
+    checkVehicleGraph(VEHICLE_BOAT.getName());
+
+
     return {
         total: total,
         unique: unique,
         vehicle: vehicle,
         miss: miss,
-        totalGraphs: totalGraphs
+        totalGraphs: totalGraphs,
+        vehicleGraphTotal: vehicleGraphTotal
     }
 }
 
@@ -502,6 +522,7 @@ $(document).ready(function(){
 
     stats.sort(function(a, b) {
         if(a.totalGraphs != b.totalGraphs) return b.totalGraphs - a.totalGraphs;
+        if(a.vehicleGraphTotal != b.vehicleGraphTotal) return a.vehicleGraphTotal - b.vehicleGraphTotal;
         if(a.vehicle != b.vehicle) return a.vehicle - b.vehicle;
         if(a.unique != b.unique) return a.unique - b.unique;
         if(a.miss != b.miss) return a.miss - b.miss;
@@ -525,6 +546,7 @@ $(document).ready(function(){
         statsPan.empty();
 
         statsPan.append('<b>Graphs:</b> ' + winnerStats.totalGraphs + '<br>');
+        statsPan.append('<b>vehicle Graphs:</b> ' + winnerStats.vehicleGraphTotal + '<br>');
         statsPan.append('<b>Total:</b> ' + winnerStats.total + '<br>');
         statsPan.append('<b>Unique:</b> ' + winnerStats.unique + '<br>');
         statsPan.append('<b>Miss:</b> ' + winnerStats.miss + '<br>');
