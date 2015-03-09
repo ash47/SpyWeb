@@ -523,11 +523,12 @@ $(document).ready(function(){
     stats.sort(function(a, b) {
         if(a.totalGraphs != b.totalGraphs) return b.totalGraphs - a.totalGraphs;
         if(a.vehicleGraphTotal != b.vehicleGraphTotal) return a.vehicleGraphTotal - b.vehicleGraphTotal;
-        if(a.vehicle != b.vehicle) return a.vehicle - b.vehicle;
+        if(a.miss != b.miss) return b.miss - a.miss;
         if(a.unique != b.unique) return a.unique - b.unique;
-        if(a.miss != b.miss) return a.miss - b.miss;
+        if(a.total != b.total) return a.total - b.total;
+        if(a.vehicle != b.vehicle) return a.vehicle - b.vehicle;
 
-        return a.total - b.total;
+        return 0;
     });
 
     // Displays the given result
