@@ -607,15 +607,16 @@ $(document).ready(function(){
 
     function doit(dataSet) {
         // Process the data
-        $('#progress').text('Processing data...');
         processData(dataSet, function() {
             // Sort the data
             $('#progress').text('Sorting data...');
-            sortData();
-            $('#progress').text('');
+            setTimeout(function() {
+                sortData();
+                $('#progress').text('');
 
-            // Build the UI
-            buildResultUI(dataSet);
+                // Build the UI
+                buildResultUI(dataSet);
+            }, 0)
         });
     }
 
