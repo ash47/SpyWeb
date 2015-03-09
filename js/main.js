@@ -409,15 +409,21 @@ Board.prototype.calcStats = function() {
 }
 
 /*
-    Main program
+    Useful vars
 */
 
-// When everything is ready, do things
-$(document).ready(function(){
-    // Arrays of characters
-    var goodCharacters = [];
-    var badCharacters = [];
+// Arrays of characters
+var goodCharacters = [];
+var badCharacters = [];
 
+// Stats on all the characters
+var stats = [];
+
+/*
+    Data sorting
+*/
+
+function prepareData() {
     // Process character data
     for(var characterName in characterData) {
         // Grab the data for this character
@@ -442,61 +448,36 @@ $(document).ready(function(){
 
     // We can cleanup the characterData now
     delete characterData;
+}
 
-    var stats = [];
-    var usedChars = [];
+/*
+    Proccessor function
+*/
+
+function processData(pool, callback) {
+    // Reset our stats store
+    stats = [];
 
     // Used for progress updating
     var totalPermutations = 1;
     var totalDone = 0;
-    var nextCheck = 0;
     var checkIncease = 0.05;
     for(var i=2; i<=9; ++i) {
         totalPermutations *= i;
     }
 
-    var pool;
-
-    while(true) {
-        var userInput = prompt('Do you want to generate the good or bad character combos?', 'good');
-        if(userInput == 'good') {
-            pool = goodCharacters;
-            break;
-        } else if(userInput == 'bad') {
-            pool = badCharacters;
-            break;
-        }
-    }
-
-    var board = new Board();
-    function permute(input) {
-        // Check if we should print progress
-        if(totalDone/totalPermutations >= nextCheck) {
-            nextCheck += checkIncease;
-            console.log('Done ' + totalDone + '/' + totalPermutations);
-        }
-
+    var usedChars = [];
+    var outStanding = [];
+    function permute(input, noRecursion) {
         var i, j, ch;
         for (i=0; i<input.length; ++i) {
             ch = input.splice(i, 1)[0];
             usedChars.push(ch);
             if (input.length == 0) {
                 var res = usedChars.slice();
-                for(j=0; j<res.length; ++j) {
-                    board.setCharacterSlot(j, pool[res[j]]);
-                }
 
-                for(j=0; j<9; ++j) {
-                    board.pickSlot(j);
-
-                    var ourStats = board.calcStats();
-                    ourStats.state = res;
-                    ourStats.pos = j;
-                    stats.push(ourStats);
-                }
-
-                // Increase stats
-                totalDone++;
+                // Store as something that needs to be done
+                outStanding.push(res);
             }
             permute(input);
             input.splice(i, 0, ch);
@@ -504,8 +485,7 @@ $(document).ready(function(){
         }
     };
 
-    console.log('Beginning permutations!');
-
+    // Build permutations
     permute([
         0,
         1,
@@ -518,8 +498,50 @@ $(document).ready(function(){
         8
     ]);
 
-    console.log('Beginning sorting...');
+    var board = new Board();
+    function asyncProcessStats() {
+        var totalLeft = 5000;
+        while(outStanding.length && totalLeft--) {
+            // Grab data
+            var res = outStanding.pop();
 
+            for(j=0; j<res.length; ++j) {
+                board.setCharacterSlot(j, pool[res[j]]);
+            }
+
+            for(j=0; j<9; ++j) {
+                board.pickSlot(j);
+
+                var ourStats = board.calcStats();
+                ourStats.state = res;
+                ourStats.pos = j;
+                stats.push(ourStats);
+            }
+
+            ++totalDone;
+        }
+
+        // Check if we should print progress
+        $('#progress').text(Math.floor(totalDone/totalPermutations*100) + '% (' + totalDone + ' / ' + totalPermutations) + ')';
+
+        if(outStanding.length > 0) {
+            // More work to do
+            setTimeout(asyncProcessStats, 0);
+        } else {
+            // Done!
+            callback();
+        }
+    }
+
+    // Begin async stat calculation
+    asyncProcessStats();
+}
+
+/*
+    Data Sorting
+*/
+
+function sortData() {
     stats.sort(function(a, b) {
         if(a.totalGraphs != b.totalGraphs) return b.totalGraphs - a.totalGraphs;
         if(a.vehicleGraphTotal != b.vehicleGraphTotal) return a.vehicleGraphTotal - b.vehicleGraphTotal;
@@ -530,6 +552,15 @@ $(document).ready(function(){
 
         return 0;
     });
+}
+
+/*
+    Result UI
+*/
+
+function buildResultUI(pool) {
+    // Board used to display stuff
+    var board = new Board();
 
     // Displays the given result
     function displayResult(pickNum) {
@@ -563,4 +594,41 @@ $(document).ready(function(){
     slider.slider({min:0, max:stats.length-1, step:1, slide: function( event, ui ) {
         displayResult(ui.value);
     }});
+}
+
+/*
+    Main program
+*/
+
+// When everything is ready, do things
+$(document).ready(function(){
+    // Prepare the data for use
+    prepareData();
+
+    function doit(dataSet) {
+        // Process the data
+        $('#progress').text('Processing data...');
+        processData(dataSet, function() {
+            // Sort the data
+            $('#progress').text('Sorting data...');
+            sortData();
+            $('#progress').text('');
+
+            // Build the UI
+            buildResultUI(dataSet);
+        });
+    }
+
+    $('#good').click(function() {
+        doit(goodCharacters);
+    });
+
+    $('#bad').click(function() {
+        doit(badCharacters);
+    });
+
+    // Put in a temp board
+    var board = new Board();
+    board.display($('#content'));
+    delete board;
 });
