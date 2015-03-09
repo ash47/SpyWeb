@@ -244,7 +244,7 @@ Board.prototype.calcStats = function() {
     var character = this.getPicked();
     if(character != null) {
         character.loopOverMoves(function(chr, dir, move) {
-            this.miss++;
+            miss++;
         });
     }
 
